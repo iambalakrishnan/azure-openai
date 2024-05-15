@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure OpenAI Chat</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div id="chat-history" class="chat-history d-flex flex-column"></div>
+        <div class="input-container">
+            <form id="chat-form" class="input-bar">
+                <textarea class="form-control" id="user_input" placeholder="Message here" onkeydown="handleKeyDown(event)"></textarea>
+                <button type="submit" class="btn send-button"><i class="fas fa-paper-plane"></i></button>
+            </form>
+            <div class="footer-text">Language Model can make mistakes. </div>
+        </div>
+    </div>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user_input');
+        const chatHistory = document.getElementById('chat-history');
+
+        hljs.highlightAll();
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        }
+
+        chatForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const message = userInput.value.trim(); // Trim whitespace
+            if (message !== "") { // Only send non-empty messages
+                userInput.value = '';
+                addUserMessage(message);
+                const aiResponse = await getAIResponse(message);
+                addAIMessage(aiResponse);
+            }
+        });
+
+        function addUserMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message', 'user-message');
+            messageElement.textContent = message;
+            chatHistory.appendChild(messageElement);
+            chatHistory.scrollTop = chatHistory.scrollHeight; // Auto-scroll to bottom
+        }
+
+        async function getAIResponse(message) {
+            const response = await fetch('/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `user_input=${encodeURIComponent(message)}`,
+            });
+            const data = await response.json();
+            return data.response;
+        }
+
+        function addAIMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message', 'ai-message');
+
+            // Detect and format code blocks (keep this logic the same)
+            const lines = message.split('\n');
+            let codeBlock = null;
+            let inCodeBlock = false;
+
+            for (const line of lines) {
+                if (line.trim().startsWith('```')) {
+                    inCodeBlock = !inCodeBlock;
+                    if (inCodeBlock) {
+                        codeBlock = document.createElement('pre');
+                        const codeElement = document.createElement('code');
+                        codeBlock.appendChild(codeElement);
+                        messageElement.appendChild(codeBlock);
+                    }
+                } else if (inCodeBlock) {
+                    codeBlock.firstChild.textContent += line + '\n';
+                } else {
+                    messageElement.appendChild(document.createTextNode(line));
+                }
+            }
+
+            chatHistory.appendChild(messageElement);
+            hljs.highlightBlock(messageElement); // Highlight any new code blocks
+            chatHistory.scrollTop = chatHistory.scrollHeight; // Auto-scroll to bottom
+        }
+    </script>
+</body>
+</html>
